@@ -34,4 +34,5 @@ Assuming ~/bin is on your PATH, you can call it from anywhere.
 
     $ cd ~/gitrepos/somerepo
 	$ git-cloc-history.sh
-	$ cat cloc/merged.csv # this is the output CSV file
+	CLOC history successfully written to ~/gitrepos/somerepo/cloc-history.csv
+	$ cat cloc-history.csv # this is the output CSV file
