@@ -5,9 +5,11 @@ You must have [cloc](http://cloc.sourceforge.net/ ) installed and on your PATH.
 
 ## Building ##
 To build, run the project in SBT
+
     $ cd /path/to/git-cloc-history
 	$ sbt
 	> assembly
+	
 This should generate target/git-cloc-history-assembly-0.1-SNAPSHOT.jar
 
 ## Running the Application##
