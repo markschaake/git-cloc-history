@@ -28,4 +28,10 @@ For convenience, I create use a shell script that encapsulates the java applicat
 
     #!/bin/bash
 	# script location: ~/bin/git-cloc-history.sh
-	java /absolute/path/to/git-cloc-history/target/git-cloc-history-assembly-0.1-SNAPSHOT.jar $@
+	java /absolute/path/to/git-cloc-history/target/git-cloc-history-assembly-0.1-SNAPSHOT.jar 
+	
+Assuming ~/bin is on your PATH, you can call it from anywhere.
+
+    $ cd ~/gitrepos/somerepo
+	$ git-cloc-history.sh
+	$ cat cloc/merged.csv # this is the output CSV file

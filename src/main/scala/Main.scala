@@ -8,7 +8,7 @@ object Main extends App {
   case class Config(
     branch: String = "master",
     clocDir: String = ".",
-    outDir: String = "cloc",
+    outDir: String = ".",
     fromDate: Option[DateTime] = None
   )
 
@@ -57,11 +57,14 @@ object Main extends App {
 
     def withWriter[A](fileName: String)(f: BufferedWriter => A) = {
       val file = new File(fileName)
+      if (file.exists())
+        file.delete()
       file.createNewFile()
       val writer = new FileWriter(fileName, true)
       val bufferedWriter = new BufferedWriter(writer)
       try {
         f(bufferedWriter)
+        println("CLOC history successfully written to " + file.getAbsolutePath())
       } finally {
         bufferedWriter.close
         writer.close
@@ -73,10 +76,7 @@ object Main extends App {
     requireSuccess("git", "status")("This command must be executed from within a 'git' repository")
 
     val outDir = new File(config.outDir)
-    if (outDir.exists())
-      outDir.listFiles foreach { f => f.delete() }
-    else
-      outDir.mkdir()
+    if (!outDir.exists()) outDir.mkdir()
 
     val revs = config.fromDate match {
       case Some(from) => (Seq("git", "rev-list", "--no-merges", "--after", from.toString("yyyy-MM-dd"), config.branch).!!).split("\n")
@@ -90,7 +90,7 @@ object Main extends App {
         generateClocsForRev()
     }
 
-    withWriter(config.outDir + "/merged.csv") { bufferedWriter =>
+    withWriter(config.outDir + "/cloc-history.csv") { bufferedWriter =>
       bufferedWriter.write("time,files,language,blank,comment,code\n")
       clocs.flatten foreach { cloc => bufferedWriter.write(cloc.toCsv + "\n" ) }
     }
