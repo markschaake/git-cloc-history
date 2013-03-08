@@ -26,13 +26,13 @@ By default, the application assumes you want cloc history for the master branch 
 
 ## Tip: use a shell script for easier use ##
 
-For convenience, I create use a shell script that encapsulates the java application:
+For convenience, I use a shell script that encapsulates the java application:
 
     #!/bin/bash
 	# script location: ~/bin/git-cloc-history.sh
 	java /absolute/path/to/git-cloc-history/target/git-cloc-history-assembly-0.1-SNAPSHOT.jar 
 	
-Assuming ~/bin is on your PATH, you can call it from anywhere.
+Assuming ~/bin is on your PATH and git-cloc-history.sh is executable, you can call it from anywhere.
 
     $ cd ~/gitrepos/somerepo
 	$ git-cloc-history.sh
