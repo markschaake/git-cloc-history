@@ -1,7 +1,7 @@
 object Main extends App {
 
   import scala.sys.process._
-  import java.io.{File, FileWriter, BufferedWriter}
+  import java.io.{ File, FileWriter, BufferedWriter }
   import scala.io.Source
   import org.joda.time.DateTime
 
@@ -10,8 +10,7 @@ object Main extends App {
     clocDir: String = ".",
     outDir: String = ".",
     onePerDay: Boolean = true,
-    fromDate: Option[DateTime] = None
-  )
+    fromDate: Option[DateTime] = None)
 
   case class Cloc(date: DateTime, files: Int, language: String, blank: Int, comment: Int, code: Int) {
     def toCsv = date.toString("yyyy-MM-dd") + "," + files + "," + language + "," + blank + "," + comment + "," + code
@@ -34,9 +33,8 @@ object Main extends App {
       opt("b", "branch", "git branch for which to generate cloc history") { (v: String, c: Config) => c.copy(branch = v) },
       opt("d", "clocdir", "directory within git branch to generate cloc history") { (v: String, c: Config) => c.copy(clocDir = v) },
       opt("o", "outdir", "directory to create and put the cloc history files") { (v: String, c: Config) => c.copy(outDir = v) },
-      booleanOpt("oneperday", "only output one cloc per 'commit day' instead of one per commit. Default = true") { (v: Boolean, c: Config) => c.copy(onePerDay = v)},
-      opt("f", "fromdate", "only generate cloc for commits after this date") { (v: String, c: Config) => c.copy(fromDate = Some(new DateTime(v))) }
-    )
+      booleanOpt("oneperday", "only output one cloc per 'commit day' instead of one per commit. Default = true") { (v: Boolean, c: Config) => c.copy(onePerDay = v) },
+      opt("f", "fromdate", "only generate cloc for commits after this date") { (v: String, c: Config) => c.copy(fromDate = Some(new DateTime(v))) })
   }
 
   parser.parse(args, Config()) map { config =>
@@ -45,7 +43,7 @@ object Main extends App {
       if (commands.! != 0) {
         sys.error(s"[ERROR] $errorMsg")
         Seq("git", "checkout", "-f", config.branch).!
-          sys.exit(1)
+        sys.exit(1)
       }
     }
 
@@ -112,13 +110,11 @@ object Main extends App {
 
     withWriter(config.outDir + "/cloc-history.csv") { bufferedWriter =>
       bufferedWriter.write("time,files,language,blank,comment,code\n")
-      clocsToOutput foreach { cloc => bufferedWriter.write(cloc.toCsv + "\n" ) }
+      clocsToOutput foreach { cloc => bufferedWriter.write(cloc.toCsv + "\n") }
     }
 
   } getOrElse {
     // args are bad, usage message will have been displayed
   }
-
-  
 
 }
