@@ -6,7 +6,7 @@ scalaVersion := "2.10.0"
 
 name := "git-cloc-history"
 
-scalacOptions += "-deprecation"
+scalacOptions ++= Seq("-deprecation", "-feature")
 
 libraryDependencies ++= Seq(
   "com.github.scopt" %% "scopt" % "2.1.0",

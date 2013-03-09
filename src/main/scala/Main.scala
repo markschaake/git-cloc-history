@@ -9,12 +9,15 @@ object Main extends App {
     branch: String = "master",
     clocDir: String = ".",
     outDir: String = ".",
+    onePerDay: Boolean = true,
     fromDate: Option[DateTime] = None
   )
 
   case class Cloc(date: DateTime, files: Int, language: String, blank: Int, comment: Int, code: Int) {
     def toCsv = date.toString("yyyy-MM-dd") + "," + files + "," + language + "," + blank + "," + comment + "," + code
   }
+
+  type CommitClocs = List[Cloc]
 
   object Cloc {
     val CsvPattern = """(\d+),([^,]+),(\d+),(\d+),(\d+)""".r
@@ -31,6 +34,7 @@ object Main extends App {
       opt("b", "branch", "git branch for which to generate cloc history") { (v: String, c: Config) => c.copy(branch = v) },
       opt("d", "clocdir", "directory within git branch to generate cloc history") { (v: String, c: Config) => c.copy(clocDir = v) },
       opt("o", "outdir", "directory to create and put the cloc history files") { (v: String, c: Config) => c.copy(outDir = v) },
+      booleanOpt("oneperday", "only output one cloc per 'commit day' instead of one per commit. Default = true") { (v: Boolean, c: Config) => c.copy(onePerDay = v)},
       opt("f", "fromdate", "only generate cloc for commits after this date") { (v: String, c: Config) => c.copy(fromDate = Some(new DateTime(v))) }
     )
   }
@@ -47,12 +51,12 @@ object Main extends App {
 
     def requireCommands(commands: String*) = commands foreach { command => requireSuccess("command", "-v", command)(s"'$command' not found in user's path and is required") }
     def gitCheckout(rev: String) = requireSuccess("git", "checkout", "-f", "-q", rev)(s"Could not checkout revision $rev")
-    def generateClocsForRev(): List[Cloc] = {
+
+    def generateClocsForRev(): CommitClocs = {
       val cdate = ((Seq("git", "log", "-1", "--format=%ct")).!!).trim.toLong
       val date = new DateTime(cdate * 1000)
       val lines = Seq("cloc", "--csv", "--quiet", "--progress-rate=0", config.clocDir).!!.split("\n").toList
-      val clocCsvs = lines.drop(2)
-      clocCsvs map { csv => Cloc(date, csv) }
+      lines.drop(2).map(csv => Cloc(date, csv))
     }
 
     def withWriter[A](fileName: String)(f: BufferedWriter => A) = {
@@ -68,7 +72,7 @@ object Main extends App {
       } finally {
         bufferedWriter.close
         writer.close
-        Seq("git", "checkout", "-f", config.branch).!
+        gitCheckout(config.branch)
       }
     }
 
@@ -90,9 +94,25 @@ object Main extends App {
         generateClocsForRev()
     }
 
+    val clocsToOutput: List[Cloc] =
+      if (config.onePerDay) {
+        clocs
+          .filter(_.size > 0)
+          .map(commitClocs => commitClocs.head.date -> commitClocs)
+          .groupBy(_._1.toString("yyyy-MM-dd"))
+          .map(entry => entry._1 -> entry._2.sortBy(_._1.getMillis).last._2)
+          .toList
+          .sortBy(_._1)
+          .map(_._2)
+          .flatten
+          .toList
+      } else {
+        clocs.flatten.toList
+      }
+
     withWriter(config.outDir + "/cloc-history.csv") { bufferedWriter =>
       bufferedWriter.write("time,files,language,blank,comment,code\n")
-      clocs.flatten foreach { cloc => bufferedWriter.write(cloc.toCsv + "\n" ) }
+      clocsToOutput foreach { cloc => bufferedWriter.write(cloc.toCsv + "\n" ) }
     }
 
   } getOrElse {
