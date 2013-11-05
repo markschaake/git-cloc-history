@@ -8,33 +8,37 @@ To build, run the project in SBT
 
     $ cd /path/to/git-cloc-history
 	$ sbt
-	> assembly
+	> universal:packageBin
 	
-This should generate target/git-cloc-history-assembly-0.1-SNAPSHOT.jar
+This should generate `target/universal/git-cloc-history-0.1-SNAPSHOT.zip`
 
 ## Running the Application##
 
-    $ java target/git-cloc-history-assembly-0.1-SNAPSHOT.jar [args]
+Unzip the artifact and you'll find it contains `bin` and `lib` directories:
+
+    $ unzip target/universal/git-cloc-history-0.1-SNAPSHOT.zip
+    $ l -al target/universal/git-cloc-history-0.1-SNAPSHOT
+    >> bin lib
+
+Use the executable in the `bin` directory apporopriate for your system:
+
+    $ target/universal/git-cloc-history-0.1-SNAPSHOT/bin/git-cloc-history [args]
 
 ## Command Line Options ##
 
-By default, the application assumes you want cloc history for the master branch in the current directory. The following options are available:
+By default, the application assumes you want cloc history for the current branch in the current directory.
 
-* Specify a different branch with "-b [branch]" or "--branch [branch]"
-* Specify a specific subdirectory for cloc with "-d [subdir path]" or "--clocdir [subdir path]"
-* Specify a "from" date to limit git revs to consider with "-f [yyyy-MM-dd]" or "--fromdate [yyyy-MM-dd]"
+Run the executable without any arguments and you will get a listing of the available options and defaults.
 
-## Tip: use a shell script for easier use ##
+## Tip: create a symbolic link to the executable for easier use ##
 
-For convenience, I use a shell script that encapsulates the java application:
+For convenience, I have a symbolic link to the executable in my ~/bin directory (which is loaded to my PATH):
 
-    #!/bin/bash
-	# script location: ~/bin/git-cloc-history.sh
-	java /absolute/path/to/git-cloc-history/target/git-cloc-history-assembly-0.1-SNAPSHOT.jar $@
+    $ ln -s target/universal/git-cloc-history-0.1-SNAPSHOT/bin/git-cloc-history ~/bin/git-cloc
 	
 Assuming ~/bin is on your PATH and git-cloc-history.sh is executable, you can call it from anywhere.
 
     $ cd ~/gitrepos/somerepo
-	$ git-cloc-history.sh
+	$ git-cloc
 	CLOC history successfully written to ~/gitrepos/somerepo/cloc-history.csv
 	$ cat cloc-history.csv # this is the output CSV file
