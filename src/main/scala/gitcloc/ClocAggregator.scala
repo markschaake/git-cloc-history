@@ -16,10 +16,12 @@ import sys.process._
  */
 class ClocAggregator(config: Config) extends Actor with ActorLogging {
 
-  var resultCount: Int = 0
-  var cursor: Int = 0
   type CommitClocs = List[Cloc]
+
   val clocResults = ListBuffer[CommitClocs]()
+  var completedResults = 0
+  var failedResults = 0
+  def totalResponses = completedResults + failedResults
 
   val outDir = config.outDir
   val startTime = DateTime.now
@@ -31,35 +33,36 @@ class ClocAggregator(config: Config) extends Actor with ActorLogging {
 
   override def preStart = {
     if (!outDir.exists()) outDir.mkdir()
-
     log.info(s"Will calculate CLOC for ${revs.size} Git revisions")
-    // create initial set of RevClockers (how many?) and start it off
-    //revs.take(Math.min(revs.size, 16)) foreach { _ => spawnRevClocker() }
-    revs foreach { _ => spawnRevClocker() }
+    var cursor: Int = 0
+    revs foreach { rev =>
+      log.info(s"Spawning RevClocker [$cursor of ${revs.size}]")
+      val child = context.actorOf(RevClocker.props(config, rev), s"rev-$cursor")
+      context.watch(child)
+      cursor += 1
+    }
   }
 
-  private[this] def spawnRevClocker() = {
-    log.info(s"Spawning RevClocker [$cursor of ${revs.size}]")
-    context.actorOf(RevClocker.props(config), s"rev-$cursor") ! RevClocker.GenerateRev(revs(cursor))
-    cursor += 1
+  override val supervisorStrategy = SupervisorStrategy.stoppingStrategy
+
+  def completeIfDone() = if (completedResults == revs.size) {
+    log.info("All clocs have been gathered or stopped, will write to output file")
+    writeOutputFile()
+    log.info(s"Processing complete.\n\tProcessing time: ${TimeUtils.printDuration(startTime, DateTime.now)}")
+    log.info(s"Results:\n\tTotal revisions considered: $completedResults\n\tTotal revisions failed due to error: $failedResults")
+    context.stop(self)
+    context.system.shutdown()
   }
 
   def receive = {
     case clocs: CommitClocs =>
-      resultCount += 1
       clocResults.append(clocs)
-      if (cursor < revs.size) {
-        spawnRevClocker()
-      } else if (resultCount < revs.size) {
-        // do nothing
-      } else {
-        // we are done! Generate output and shut 'er down
-        log.info("All clocs have been gathered, will write to output file")
-        writeOutputFile()
-        log.info(s"Processing complete.\nProcessing time: ${TimeUtils.printDuration(startTime, DateTime.now)}")
-        context.stop(self)
-        context.system.shutdown()
-      }
+      completedResults += 1
+      context.stop(context.unwatch(sender))
+      completeIfDone()
+    case Terminated(child) =>
+      failedResults += 1
+      completeIfDone()
   }
 
   def writeOutputFile() = {

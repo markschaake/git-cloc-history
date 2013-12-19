@@ -10,18 +10,23 @@ import scala.sys.process._
  * Actor whose only responsibility is to generate Cloc entries
  * for one revision
  */
-class RevClocker(config: Config) extends Actor with ActorLogging {
+class RevClocker(config: Config, rev: String) extends Actor with ActorLogging {
 
   type CommitClocs = List[Cloc]
 
-  def receive = {
-    case RevClocker.GenerateRev(rev) =>
-      val clocDir = Files.createTempDirectory("gitcloc")
-      val gitRevisionZip = Paths.get(clocDir.toString, "rev.zip")
-      sender ! generateClocsForCurrentRev(rev, gitRevisionZip, config)
-      deleteFileOrDirectory(clocDir.toFile)
-      context.stop(self)
+  var clocDir: Path = _
+
+  override def preStart = {
+    clocDir = Files.createTempDirectory("gitcloc")
+    val gitRevisionZip = Paths.get(clocDir.toString, "rev.zip")
+    context.parent ! generateClocsForCurrentRev(gitRevisionZip, config)
   }
+
+  override def postStop = {
+    deleteFileOrDirectory(clocDir.toFile)
+  }
+
+  def receive = Actor.emptyBehavior
 
   def deleteFileOrDirectory(dirOrFile: File): Unit = {
     if (dirOrFile.isDirectory)
@@ -29,12 +34,12 @@ class RevClocker(config: Config) extends Actor with ActorLogging {
     dirOrFile.delete()
   }
 
-  def generateClocsForCurrentRev(rev: String, gitRevisionZip: Path, config: Config): CommitClocs = {
+  def generateClocsForCurrentRev(gitRevisionZip: Path, config: Config): CommitClocs = {
     // Checkout the rev into a temporary work tree:
     val start = DateTime.now
     log.info(s"Generating archive of rev $rev into work tree: ${gitRevisionZip}")
     if (Seq("git", "archive", rev, "--format", "zip", "--output", gitRevisionZip.toString).! != 0)
-      throw new Exception("Failed to checkout revision into ")
+      throw new Exception(s"Failed to checkout revision ${rev} into ${gitRevisionZip.toString}")
 
     val cdate = ((Seq("git", "log", "-1", "--format=%ct", rev)).!!).trim.toLong
     val date = new DateTime(cdate * 1000)
@@ -46,7 +51,5 @@ class RevClocker(config: Config) extends Actor with ActorLogging {
 }
 
 object RevClocker {
-  case class GenerateRev(rev: String)
-
-  def props(config: Config) = Props(classOf[RevClocker], config).withDispatcher("cloc-dispatcher")
+  def props(config: Config, rev: String) = Props(classOf[RevClocker], config, rev).withDispatcher("cloc-dispatcher")
 }
