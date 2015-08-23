@@ -10,15 +10,15 @@ import org.joda.time.format.PeriodFormatterBuilder
 import scala.collection.mutable.ListBuffer
 import sys.process._
 
+case class CommitClocs(clocs: List[Cloc])
+
 /**
  * Actor that manages scatter / gather of individual CLOC
  * calculations per Git ref
  */
 class ClocAggregator(config: Config) extends Actor with ActorLogging {
 
-  type CommitClocs = List[Cloc]
-
-  val clocResults = ListBuffer[CommitClocs]()
+  var clocResults = List[CommitClocs]()
   var completedResults = 0
   var failedResults = 0
   def totalResponses = completedResults + failedResults
@@ -27,7 +27,20 @@ class ClocAggregator(config: Config) extends Actor with ActorLogging {
   val startTime = DateTime.now
 
   lazy val revs: List[String] = config.fromDate match {
-    case Some(from) => (Seq("git", "rev-list", "--no-merges", "--after", from.toString("yyyy-MM-dd"), config.branch).!!).split("\n").toList
+    case Some(from) =>
+      val allCommits =
+        (Seq("git", "rev-list", "--no-merges", "--after", from.toString("yyyy-MM-dd"), config.branch).!!).split("\n").toList
+
+      if (config.onePerDay) {
+        val byDate = allCommits groupBy { commit =>
+          val dateStr = Seq("git", "show", "-s", "--format=%aI", commit).!!
+
+          new DateTime(dateStr.take(10))
+        }
+        (byDate map (_._2.head)).toList
+      } else {
+        allCommits
+      }
     case _          => (Seq("git", "rev-list", "--no-merges", config.branch).!!).split("\n").toList
   }
 
@@ -55,8 +68,8 @@ class ClocAggregator(config: Config) extends Actor with ActorLogging {
   }
 
   def receive = {
-    case clocs: CommitClocs =>
-      clocResults.append(clocs)
+    case c: CommitClocs =>
+      clocResults = clocResults :+ c
       completedResults += 1
       context.stop(context.unwatch(sender))
       completeIfDone()
@@ -84,23 +97,8 @@ class ClocAggregator(config: Config) extends Actor with ActorLogging {
     }
 
     withWriter(config.outDir + "/cloc-history.csv") { bufferedWriter =>
-      val clocsToOutput: List[Cloc] =
-        if (config.onePerDay) {
-          clocResults
-            .filter(_.size > 0)
-            .map(commitClocs => commitClocs.head.date -> commitClocs)
-            .groupBy(_._1.toString("yyyy-MM-dd"))
-            .map(entry => entry._1 -> entry._2.sortBy(_._1.getMillis).last._2)
-            .toList
-            .sortBy(_._1)
-            .map(_._2)
-            .flatten
-            .toList
-        } else {
-          clocResults.flatten.toList
-        }
       bufferedWriter.write("time,files,language,blank,comment,code\n")
-      clocsToOutput foreach { cloc =>
+      clocResults.flatMap(_.clocs) foreach { cloc =>
         bufferedWriter.write(cloc.toCsv + "\n")
       }
     }

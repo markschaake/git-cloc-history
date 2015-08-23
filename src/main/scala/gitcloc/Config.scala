@@ -9,4 +9,4 @@ case class Config(
   outDir: File = new File("."),
   onePerDay: Boolean = true,
   fromDate: Option[DateTime] = None,
-  excludes: String = "")
+  excludes: Option[String] = None)

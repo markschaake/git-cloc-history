@@ -12,8 +12,6 @@ import scala.sys.process._
  */
 class RevClocker(config: Config, rev: String) extends Actor with ActorLogging {
 
-  type CommitClocs = List[Cloc]
-
   var clocDir: Path = _
 
   override def preStart = {
@@ -43,13 +41,18 @@ class RevClocker(config: Config, rev: String) extends Actor with ActorLogging {
 
     val cdate = ((Seq("git", "log", "-1", "--format=%ct", rev)).!!).trim.toLong
     val date = new DateTime(cdate * 1000)
-    val lines = Seq("cloc", "--csv", "--quiet", "--progress-rate=0", s"--exclude-dir=${config.excludes}", gitRevisionZip.toString).!!.split("\n").toList
+    val lines = config.excludes match {
+      case Some(excludes) =>
+        Seq("cloc", "--csv", "--quiet", "--progress-rate=0", s"--exclude-dir=${excludes}", gitRevisionZip.toString).!!.split("\n").toList
+      case None =>
+        Seq("cloc", "--csv", "--quiet", "--progress-rate=0", gitRevisionZip.toString).!!.split("\n").toList
+    }
     log.info(s"Finished processing CLOC for $rev\n\tTotal time: ${TimeUtils.printDuration(start, DateTime.now)}")
-    lines.drop(2).map(csv => Cloc(date, csv))
+    CommitClocs(lines.drop(2).map(csv => Cloc(date, csv)))
   }
 
 }
 
 object RevClocker {
-  def props(config: Config, rev: String) = Props(classOf[RevClocker], config, rev).withDispatcher("cloc-dispatcher")
+  def props(config: Config, rev: String) = Props(classOf[RevClocker], config, rev)
 }

@@ -30,7 +30,7 @@ object Main extends App {
     } text ("only generate cloc for commits after this date")
 
     opt[String]('e', "excludes") action { (v, c) =>
-      c.copy(excludes = v)
+      c.copy(excludes = Some(v))
     } text ("exclude files and directories matching one of the comma separated names from cloc results")
 
   }
@@ -54,7 +54,7 @@ object Main extends App {
     val system = ActorSystem("git-cloc-history")
 
     // Create an aggregator actor and kick it off. The rest is up to it.
-    system.actorOf(ClocAggregator.props(config), "clocAggregator")
+    system.actorOf(ClocAggregator.props(config), "cloc-aggregator")
 
   } getOrElse {
     // args are bad, usage message will have been displayed
